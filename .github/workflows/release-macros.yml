@@ -17,10 +17,16 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # 2. Loop through src/json, minify, and save to a temporary distribution folder
+      # 2. Workspace Cleanup Step
+      - name: Clean Local Workspace
+        run: |
+          echo "Cleaning up any old build directories..."
+          rm -rf dist_macros
+          
+      # 3. Loop through src/json, minify, and save to a temporary distribution folder
       - name: Compile JSON to Macros
         run: |
-          echo "Creating output directory..."
+          echo "Creating fresh output directory..."
           mkdir -p dist_macros
 
           echo "Compiling files from src/json/..."
@@ -36,7 +42,7 @@ jobs:
             echo "Successfully compiled: ${basename}.macro"
           done
 
-      # 3. Create a GitHub Release, generate release notes, and publish immediately
+      # 4. Create a GitHub Release, generate customized release notes, and publish immediately
       - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
