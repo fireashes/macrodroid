@@ -1,0 +1,56 @@
+name: Publish Release with Minified Macros
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers whenever you push a version tag like v1.0.0, v2.1.3
+  workflow_dispatch: # Allows manual trigger from the Actions tab for testing
+
+permissions:
+  contents: write # Required permission to publish releases and upload assets
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Fetch the code from your repository
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # 2. Loop through src/json, minify, and save to a temporary distribution folder
+      - name: Compile JSON to Macros
+        run: |
+          echo "Creating output directory..."
+          mkdir -p dist_macros
+
+          echo "Compiling files from src/json/..."
+          for file in src/json/*.json; do
+            # Ensure the file exists to avoid safety loop errors if the directory is empty
+            [ -e "$file" ] || continue
+            
+            # Extract the raw filename without path or .json extension
+            basename=$(basename "$file" .json)
+            
+            # Minify and save with the .macro extension
+            jq -c . "$file" > "dist_macros/${basename}.macro"
+            echo "Successfully compiled: ${basename}.macro"
+          done
+
+      # 3. Create a GitHub Release, generate release notes, and publish immediately
+      - name: Publish GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the git tag as the release version, or fallback to a timestamp if run manually
+          RELEASE_TAG="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RELEASE_TAG="macros-$(date +'%Y%m%d%H%M%S')"
+          fi
+
+          echo "Publishing release for tag: $RELEASE_TAG"
+          
+          # Create and publish the release immediately with automated notes
+          gh release create "$RELEASE_TAG" \
+            dist_macros/*.macro \
+            --title "Release $RELEASE_TAG" \
+            --generate-notes
